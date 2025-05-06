@@ -134,39 +134,43 @@ receivers:
               system.disk.merged:
                 enabled: true
 
+exporters:
+  debug:
+    verbosity: detailed
+
 processors:
-  resourcedetection/system:
+  resourcedetection:
     detectors: ["system"]
-      system:
-        resource_attributes:
-          host.arch:
-            enabled: true
-          host.cpu.cache.l2.size:
-            enabled: true
-          host.cpu.family:
-            enabled: true
-          host.cpu.model.id:
-            enabled: true
-          host.cpu.model.name:
-            enabled: true
-          host.cpu.stepping:
-            enabled: true
-          host.cpu.vendor.id:
-            enabled: true
-          host.id:
-            enabled: true
-          host.ip:
-            enabled: true
-          host.mac:
-            enabled: true
-          host.name:
-            enabled: true
-          os.description:
-            enabled: true
-          os.type:
-            enabled: true
-          os.version:
-            enabled: true
+    system:
+      resource_attributes:
+        host.arch:
+          enabled: true
+        host.cpu.cache.l2.size:
+          enabled: true
+        host.cpu.family:
+          enabled: true
+        host.cpu.model.id:
+          enabled: true
+        host.cpu.model.name:
+          enabled: true
+        host.cpu.stepping:
+          enabled: true
+        host.cpu.vendor.id:
+          enabled: true
+        host.id:
+          enabled: true
+        host.ip:
+          enabled: true
+        host.mac:
+          enabled: true
+        host.name:
+          enabled: true
+        os.description:
+          enabled: true
+        os.type:
+          enabled: true
+        os.version:
+          enabled: true
 
 
 service:
@@ -175,7 +179,6 @@ service:
           receivers: [hostmetrics]
           processors: [resourcedetection]
           exporters: [debug]
-
 ```
 
 > This will collect all the available metrics that otel collector supports as of now and add resource attributes to it.
