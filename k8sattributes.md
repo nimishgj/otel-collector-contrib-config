@@ -3,6 +3,15 @@
 ```yaml
 k8sattributes:
   auth_type: 'serviceAccount'
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.ip
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.uid
+      - sources:
+          - from: connection
     extract:
       metadata:
         - k8s.namespace.name
@@ -19,7 +28,6 @@ k8sattributes:
         - k8s.daemonset.name
         - k8s.statefulset.uid
         - k8s.statefulset.name
-        - k8s.cronjob.uid
         - k8s.cronjob.name
         - k8s.job.uid
         - k8s.job.name
@@ -61,14 +69,5 @@ k8sattributes:
           - tag_name: kube_app_managed_by
             key: app.kubernetes.io/managed-by
             from: pod
-      pod_association:
-        - sources:
-            - from: resource_attribute
-              name: k8s.pod.ip
-        - sources:
-            - from: resource_attribute
-              name: k8s.pod.uid
-        - sources:
-            - from: connection
 
 ```
