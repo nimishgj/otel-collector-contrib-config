@@ -1,0 +1,608 @@
+extensions:
+  health_check:
+    endpoint: ${env:MY_POD_IP}:13133
+  zpages:
+    endpoint: ${env:MY_POD_IP}:55679
+  oauth2client:
+    client_id: <client-id>
+    client_secret: <client-secret>
+    endpoint_params:
+      audience: b14collector
+    token_url: <client-token-url>
+    tls:
+      insecure_skip_verify: true
+exporters:
+  debug:
+    verbosity: detailed
+  otlphttp/b14:
+    endpoint: <client-endpoint>
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+processors:
+  metricstransform/label_1:
+    transforms:
+      - include: .*
+        match_type: regexp
+        action: update
+        operations:
+          - action: update_label
+            label: name
+            new_label: container_id
+          - action: update_label
+            label: kubernetes_io_hostname
+            new_label: NodeName
+          - action: update_label
+            label: eks_amazonaws_com_compute_type
+            new_label: LaunchType
+
+  # rename container and pod metrics which we care about.
+  # container metrics are renamed to `new_container_*` to differentiate them with unused container metrics
+  metricstransform/rename:
+    transforms:
+      - include: container_spec_cpu_quota
+        new_name: new_container_cpu_limit_raw
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_spec_cpu_shares
+        new_name: new_container_cpu_request
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_cpu_usage_seconds_total
+        new_name: new_container_cpu_usage_seconds_total
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_spec_memory_limit_bytes
+        new_name: new_container_memory_limit
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_cache
+        new_name: new_container_memory_cache
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_max_usage_bytes
+        new_name: new_container_memory_max_usage
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_usage_bytes
+        new_name: new_container_memory_usage
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_working_set_bytes
+        new_name: new_container_memory_working_set
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_rss
+        new_name: new_container_memory_rss
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_swap
+        new_name: new_container_memory_swap
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_failcnt
+        new_name: new_container_memory_failcnt
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_failures_total
+        new_name: new_container_memory_hierarchical_pgfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate", "failure_type": "pgfault", "scope": "hierarchy"}
+      - include: container_memory_failures_total
+        new_name: new_container_memory_hierarchical_pgmajfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate", "failure_type": "pgmajfault", "scope": "hierarchy"}
+      - include: container_memory_failures_total
+        new_name: new_container_memory_pgfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate", "failure_type": "pgfault", "scope": "container"}
+      - include: container_memory_failures_total
+        new_name: new_container_memory_pgmajfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate", "failure_type": "pgmajfault", "scope": "container"}
+      - include: container_fs_limit_bytes
+        new_name: new_container_filesystem_capacity
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      - include: container_fs_usage_bytes
+        new_name: new_container_filesystem_usage
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"container": "\\S", "LaunchType": "fargate"}
+      # POD LEVEL METRICS
+      - include: container_spec_cpu_quota
+        new_name: pod_cpu_limit_raw
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_spec_cpu_shares
+        new_name: pod_cpu_request
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_cpu_usage_seconds_total
+        new_name: pod_cpu_usage_seconds_total
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_spec_memory_limit_bytes
+        new_name: pod_memory_limit
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_cache
+        new_name: pod_memory_cache
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_max_usage_bytes
+        new_name: pod_memory_max_usage
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_usage_bytes
+        new_name: pod_memory_usage
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_working_set_bytes
+        new_name: pod_memory_working_set
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_rss
+        new_name: pod_memory_rss
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_swap
+        new_name: pod_memory_swap
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_failcnt
+        new_name: pod_memory_failcnt
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate"}
+      - include: container_memory_failures_total
+        new_name: pod_memory_hierarchical_pgfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate", "failure_type": "pgfault", "scope": "hierarchy"}
+      - include: container_memory_failures_total
+        new_name: pod_memory_hierarchical_pgmajfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate", "failure_type": "pgmajfault", "scope": "hierarchy"}
+      - include: container_memory_failures_total
+        new_name: pod_memory_pgfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate", "failure_type": "pgfault", "scope": "container"}
+      - include: container_memory_failures_total
+        new_name: pod_memory_pgmajfault
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"image": "^$", "container": "^$", "pod": "\\S", "LaunchType": "fargate", "failure_type": "pgmajfault", "scope": "container"}
+      - include: container_network_receive_bytes_total
+        new_name: pod_network_rx_bytes
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_receive_packets_dropped_total
+        new_name: pod_network_rx_dropped
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_receive_errors_total
+        new_name: pod_network_rx_errors
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_receive_packets_total
+        new_name: pod_network_rx_packets
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_transmit_bytes_total
+        new_name: pod_network_tx_bytes
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_transmit_packets_dropped_total
+        new_name: pod_network_tx_dropped
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_transmit_errors_total
+        new_name: pod_network_tx_errors
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+      - include: container_network_transmit_packets_total
+        new_name: pod_network_tx_packets
+        action: insert
+        match_type: regexp
+        experimental_match_labels: {"pod": "\\S", "LaunchType": "fargate"}
+
+  # filter out only renamed metrics which we care about
+  filter:
+    metrics:
+      include:
+        match_type: regexp
+        metric_names:
+          - new_container_.*
+          - pod_.*
+
+  # convert cumulative sum datapoints to delta
+  cumulativetodelta:
+    include:
+        metrics:
+            - new_container_cpu_usage_seconds_total
+            - pod_cpu_usage_seconds_total
+            - pod_memory_pgfault
+            - pod_memory_pgmajfault
+            - pod_memory_hierarchical_pgfault
+            - pod_memory_hierarchical_pgmajfault
+            - pod_network_rx_bytes
+            - pod_network_rx_dropped
+            - pod_network_rx_errors
+            - pod_network_rx_packets
+            - pod_network_tx_bytes
+            - pod_network_tx_dropped
+            - pod_network_tx_errors
+            - pod_network_tx_packets
+            - new_container_memory_pgfault
+            - new_container_memory_pgmajfault
+            - new_container_memory_hierarchical_pgfault
+            - new_container_memory_hierarchical_pgmajfault
+        match_type: strict
+
+  # convert delta to rate
+  deltatorate:
+    metrics:
+      - new_container_cpu_usage_seconds_total
+      - pod_cpu_usage_seconds_total
+      - pod_memory_pgfault
+      - pod_memory_pgmajfault
+      - pod_memory_hierarchical_pgfault
+      - pod_memory_hierarchical_pgmajfault
+      - pod_network_rx_bytes
+      - pod_network_rx_dropped
+      - pod_network_rx_errors
+      - pod_network_rx_packets
+      - pod_network_tx_bytes
+      - pod_network_tx_dropped
+      - pod_network_tx_errors
+      - pod_network_tx_packets
+      - new_container_memory_pgfault
+      - new_container_memory_pgmajfault
+      - new_container_memory_hierarchical_pgfault
+      - new_container_memory_hierarchical_pgmajfault
+
+  metricsgeneration/1:
+    rules:
+      - name: pod_network_total_bytes
+        unit: Bytes/Second
+        type: calculate
+        metric1: pod_network_rx_bytes
+        metric2: pod_network_tx_bytes
+        operation: add
+      - name: pod_memory_utilization_over_pod_limit
+        unit: Percent
+        type: calculate
+        metric1: pod_memory_working_set
+        metric2: pod_memory_limit
+        operation: percent
+      - name: pod_cpu_usage_total
+        unit: Millicore
+        type: scale
+        metric1: pod_cpu_usage_seconds_total
+        operation: multiply
+        # core to millicore: multiply by 1000
+        # millicore seconds to millicore nanoseconds: multiply by 10^9
+        scale_by: 1000
+      - name: pod_cpu_limit
+        unit: Millicore
+        type: scale
+        metric1: pod_cpu_limit_raw
+        operation: divide
+        scale_by: 100
+
+  metricsgeneration/2:
+    rules:
+      - name: pod_cpu_utilization_over_pod_limit
+        type: calculate
+        unit: Percent
+        metric1: pod_cpu_usage_total
+        metric2: pod_cpu_limit
+        operation: percent
+
+  # add `Type` and rename metrics and labels
+  metricstransform/label_2:
+    transforms:
+      - include: pod_.*
+        match_type: regexp
+        action: update
+        operations:
+          - action: add_label
+            new_label: Type
+            new_value: "Pod"
+      - include: new_container_.*
+        match_type: regexp
+        action: update
+        operations:
+          - action: add_label
+            new_label: Type
+            new_value: Container
+      - include: .*
+        match_type: regexp
+        action: update
+        operations:
+          - action: update_label
+            label: namespace
+            new_label: Namespace
+          - action: update_label
+            label: pod
+            new_label: PodName
+      - include: ^new_container_(.*)$$
+        match_type: regexp
+        action: update
+        new_name: container_$$1
+
+  batch:
+    timeout: 2s
+    send_batch_size: 8192
+    send_batch_max_size: 10000
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 30
+  resource:
+    attributes:
+    - key: service.name
+      value: <service-name>
+      action: upsert
+  resource/k8s:
+    attributes:
+    - key: service.name
+      value: k8s
+      action: upsert
+  resource/env:
+    attributes:
+    - key: environment
+      value: playground
+      action: upsert
+    - key: k8s.cluster.name
+      value: <cluster-name>
+      action: upsert
+  resourcedetection/eks:
+    detectors: [env,  eks]
+    override: true
+    eks:
+      resource_attributes:
+        k8s.cluster.name:
+          enabled: true
+  k8sattributes:
+    auth_type: 'serviceAccount'
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.pod.hostname
+        - k8s.pod.ip
+        - k8s.pod.start_time
+        - k8s.pod.uid
+        - k8s.replicaset.uid
+        - k8s.replicaset.name
+        - k8s.deployment.uid
+        - k8s.deployment.name
+        - k8s.daemonset.uid
+        - k8s.daemonset.name
+        - k8s.statefulset.uid
+        - k8s.statefulset.name
+        - k8s.cronjob.name
+        - k8s.job.uid
+        - k8s.job.name
+        - k8s.node.name
+        - k8s.cluster.uid
+        - container.image.name
+        - container.image.tag
+        - container.id
+      annotations:
+        - tag_name: service.name
+          key: resource.opentelemetry.io/service.name
+          from: pod
+        - tag_name: service.namespace
+          key: resource.opentelemetry.io/service.namespace
+          from: pod
+        - tag_name: service.version
+          key: resource.opentelemetry.io/service.version
+          from: pod
+        - tag_name: service.instance.id
+          key: resource.opentelemetry.io/service.instance.id
+          from: pod
+      labels:
+        - tag_name: kube_app_name
+          key: app.kubernetes.io/name
+          from: pod
+        - tag_name: kube_app_instance
+          key: app.kubernetes.io/instance
+          from: pod
+        - tag_name: kube_app_version
+          key: app.kubernetes.io/version
+          from: pod
+        - tag_name: kube_app_component
+          key: app.kubernetes.io/component
+          from: pod
+        - tag_name: kube_app_part_of
+          key: app.kubernetes.io/part-of
+          from: pod
+        - tag_name: kube_app_managed_by
+          key: app.kubernetes.io/managed-by
+          from: pod
+    pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+        - sources:
+            - from: connection
+  resource/k8s-events:
+    attributes:
+      - key: service.name
+        value: "k8s-events"
+        action: upsert
+receivers:
+  prometheus/cluster:
+    config:
+      global:
+        scrape_interval: 1m
+        scrape_timeout: 40s
+
+      scrape_configs:
+      - job_name: 'kubelets-cadvisor-metrics'
+        sample_limit: 10000
+        scheme: https
+
+        kubernetes_sd_configs:
+        - role: node
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+            # Only for Kubernetes ^1.7.3.
+            # See: https://github.com/prometheus/prometheus/issues/2916
+          - target_label: __address__
+            # Changes the address to Kube API server's default address and port
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            # Changes the default metrics path to kubelet's proxy cadvdisor metrics endpoint
+            replacement: /api/v1/nodes/$${1}/proxy/metrics/cadvisor
+        metric_relabel_configs:
+          # extract readable container/pod name from id field
+          - action: replace
+            source_labels: [id]
+            regex: '^/machine\.slice/machine-rkt\\x2d([^\\]+)\\.+/([^/]+)\.service$'
+            target_label: rkt_container_name
+            replacement: '$${2}-$${1}'
+          - action: replace
+            source_labels: [id]
+            regex: '^/system\.slice/(.+)\.service$'
+            target_label: systemd_service_name
+            replacement: '$${1}'
+ 
+  otlp:
+    protocols:
+      http:
+        endpoint: ${env:MY_POD_IP}:4318
+      grpc:
+        endpoint: ${env:MY_POD_IP}:4317
+  k8s_cluster:
+    auth_type: serviceAccount
+    collection_interval: 60s
+    node_conditions_to_report: [Ready, MemoryPressure, DiskPressure, PIDPressure, NetworkUnavailable]
+    resource_attributes:
+      k8s.container.status.last_terminated_reason:
+        enabled: true
+    metrics:
+      k8s.pod.status_reason:
+        enabled: true
+      k8s.node.condition:
+        enabled: true
+    allocatable_types_to_report: [ cpu, memory, ephemeral-storage, storage ]
+  k8sobjects:
+    objects:
+      - name: events
+        mode: pull
+        interval: 60s
+        group: events.k8s.io
+      - name: deployments
+        mode: pull
+        interval: 60s
+        group: deployments.k8s.io
+      - name: resourcequotas
+        mode: pull
+        interval: 60s
+        group: resourcequotas.k8s.io
+service:
+  extensions: [ oauth2client, zpages, health_check ]
+  pipelines:
+    traces:
+      receivers: [ otlp]
+      processors: [ batch, resource/env ]
+      exporters: [ otlphttp/b14 ]
+    logs:
+      receivers: [ otlp ]
+      processors: [ batch, resource/env ]
+      exporters: [ otlphttp/b14, debug ]
+    logs/k8s-events:
+      exporters: [ otlphttp/b14 ]
+      processors: [ memory_limiter, batch, resource/k8s-events, resourcedetection/eks, resource/env ]
+      receivers: [ k8sobjects]
+    logs/k8s-cluster:
+      exporters: [ otlphttp/b14 ]
+      processors: [ memory_limiter, batch, resource/k8s, resourcedetection/eks, resource/env ]
+      receivers: [ k8s_cluster ]
+    metrics:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch, resource/env ]
+      exporters: [ otlphttp/b14 ]
+    metrics/k8s:
+      receivers: [ k8s_cluster]
+      processors: [ memory_limiter, batch, resource/k8s, resourcedetection/eks, resource/env, k8sattributes]
+      exporters: [ otlphttp/b14 ]
+    metrics/cluster:
+      receivers: [ prometheus/cluster ]
+      processors: [ metricstransform/label_1, resourcedetection, metricstransform/rename, filter, cumulativetodelta, deltatorate, metricsgeneration/1, metricsgeneration/2, metricstransform/label_2, resource/env, resource/k8s ]
+
+      exporters: [ otlphttp/b14 ]
+  telemetry:
+    metrics:
+      readers:
+        - periodic:
+           exporter:
+             otlp:
+               protocol: http/protobuf
+               endpoint: http://${env:MY_POD_IP}:4318
+    logs:
+      level: debug
+      encoding: json
+      processors:
+        - batch:
+           exporter:
+             otlp:
+               protocol: http/protobuf
+               endpoint: http://${env:MY_POD_IP}:4318
+    traces:
+      processors:
+        - batch:
+           exporter:
+             otlp:
+               protocol: http/protobuf
+               endpoint: http://${env:MY_POD_IP}:4318
