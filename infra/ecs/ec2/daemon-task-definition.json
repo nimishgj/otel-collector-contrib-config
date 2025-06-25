@@ -1,0 +1,195 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "otel-collector",
+            "image": "otel/opentelemetry-collector-contrib:latest",
+            "cpu": 256,
+            "memory": 512,
+            "portMappings": [
+                {
+                    "name": "grpc-port",
+                    "containerPort": 4317,
+                    "hostPort": 4317,
+                    "protocol": "tcp"
+                },
+                {
+                    "name": "http-port",
+                    "containerPort": 4318,
+                    "hostPort": 4318,
+                    "protocol": "tcp"
+                },
+                {
+                    "name": "fluentforward-port",
+                    "containerPort": 2255,
+                    "hostPort": 2255,
+                    "protocol": "tcp"
+                },
+                {
+                    "name": "fluentforward-asdf",
+                    "containerPort": 8006,
+                    "hostPort": 8006,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "command": [
+                "--config=env:OTEL_CONFIG_CONTENT"
+            ],
+            "environment": [
+                {
+                    "name": "AWS_REGION",
+                    "value": "ap-south-1"
+                },
+                {
+                    "name": "ECS_ENABLE_CONTAINER_METADATA",
+                    "value": "true"
+                }
+            ],
+            "mountPoints": [
+                {
+                    "sourceVolume": "docker_sock",
+                    "containerPath": "/var/run/docker.sock",
+                    "readOnly": true
+                },
+                {
+                    "sourceVolume": "proc",
+                    "containerPath": "/rootfs/proc",
+                    "readOnly": true
+                },
+                {
+                    "sourceVolume": "dev",
+                    "containerPath": "/rootfs/dev",
+                    "readOnly": true
+                },
+                {
+                    "sourceVolume": "al2_cgroup",
+                    "containerPath": "/rootfs/sys/fs/cgroup",
+                    "readOnly": true
+                },
+                {
+                    "sourceVolume": "tmpfs",
+                    "containerPath": "/rootfs/tmp",
+                    "readOnly": false
+                },
+                {
+                    "sourceVolume": "al1_cgroup",
+                    "containerPath": "/rootfs/cgroup",
+                    "readOnly": true
+                },
+                {
+                    "sourceVolume": "docker_logs",
+                    "containerPath": "/hostfs/var/lib/docker",
+                    "readOnly": true
+                }
+            ],
+            "volumesFrom": [],
+            "secrets": [
+                {
+                    "name": "OTEL_CONFIG_CONTENT",
+                    "valueFrom": "/ecs/sidecar/otel-collector.yaml"
+                }
+            ],
+            "user": "0",
+            "privileged": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/otel-collector-service",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "ap-south-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": []
+        }
+    ],
+    "family": "otel-collector-service",
+    "executionRoleArn": "arn:aws:iam::xxxxx:role/ecsTaskExecutionRole",
+    "networkMode": "host",
+    "volumes": [
+        {
+            "name": "docker_sock",
+            "host": {
+                "sourcePath": "/var/run/docker.sock"
+            }
+        },
+        {
+            "name": "proc",
+            "host": {
+                "sourcePath": "/proc"
+            }
+        },
+        {
+            "name": "dev",
+            "host": {
+                "sourcePath": "/dev"
+            }
+        },
+        {
+            "name": "al2_cgroup",
+            "host": {
+                "sourcePath": "/sys/fs/cgroup"
+            }
+        },
+        {
+            "name": "tmpfs",
+            "host": {
+                "sourcePath": "/tmp"
+            }
+        },
+        {
+            "name": "al1_cgroup",
+            "host": {
+                "sourcePath": "/cgroup"
+            }
+        },
+        {
+            "name": "docker_logs",
+            "host": {
+                "sourcePath": "/var/lib/docker"
+            }
+        }
+    ],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.privileged-container"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.17"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
+        },
+        {
+            "name": "ecs.capability.secrets.ssm.environment-variables"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2"
+    ],
+    "requiresCompatibilities": [
+        "EC2"
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "tags": []
+}

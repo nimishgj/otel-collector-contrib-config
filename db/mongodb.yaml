@@ -1,0 +1,114 @@
+receivers:
+  mongodb:
+    hosts:
+      - endpoint: localhost:27017
+    username: otel
+    password: '123'
+    collection_interval: 30s
+    initial_delay: 30s
+    tls:  
+      insecure: true
+      insecure_skip_verify: true
+    direct_connection: true
+    metrics:
+      mongodb.uptime:
+        enabled: true
+      mongodb.operation.latency.time:
+        enabled: true
+      mongodb.operation.repl.count:
+        enabled: true
+      mongodb.lock.acquire.count:
+        enabled: true
+      mongodb.lock.acquire.wait_count:
+        enabled: true
+      mongodb.lock.acquire.time:
+        enabled: true
+      mongodb.lock.deadlock.count:
+        enabled: true
+      mongodb.health:
+        enabled: true
+      mongodb.repl_queries_per_sec:
+        enabled: true
+      mongodb.repl_inserts_per_sec:
+        enabled: true
+      mongodb.repl_commands_per_sec:
+        enabled: true
+      mongodb.repl_getmores_per_sec:
+        enabled: true
+      mongodb.repl_deletes_per_sec:
+        enabled: true
+      mongodb.repl_updates_per_sec:
+        enabled: true
+      mongodb.queries.rate:
+        enabled: true
+      mongodb.inserts.rate:
+        enabled: true
+      mongodb.commands.rate:
+        enabled: true
+      mongodb.getmores.rate:
+        enabled: true
+      mongodb.deletes.rate:
+        enabled: true
+      mongodb.updates.rate:
+        enabled: true
+      mongodb.flushes.rate:
+        enabled: true
+      mongodb.active.writes:
+        enabled: true
+      mongodb.active.reads:
+        enabled: true
+      mongodb.wtcache.bytes.read:
+        enabled: true
+      mongodb.page_faults:
+        enabled: true
+
+  filelog:
+    include: [/mongodb_logs/*.log]
+    storage: file_storage
+    retry_on_failure:
+      enabled: true
+  
+    
+processors:
+  resource/env:
+    attributes:
+    - key: environment
+      value: local
+      action: upsert
+    - key: service.name
+      value: mongodb
+      action: upsert
+
+
+
+exporters:
+  debug:
+    verbosity: detailed
+  otlphttp:
+    endpoint: https://localhost:4318
+    tls:
+      insecure_skip_verify: true
+
+extensions:
+  file_storage:
+    directory: /file_storage/
+    create_directory: true
+
+
+service:
+  extensions: [ oauth2client , file_storage ]
+  telemetry:
+    logs:
+      level: debug
+  pipelines:
+    metrics:
+      receivers: [ mongodb]
+      processors: [resource/env]
+      exporters: [debug,otlphttp]
+    
+    logs:
+      receivers: [ filelog]
+      processors: [resource/env]
+      exporters: [debug,otlphttp]
+    
+      

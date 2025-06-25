@@ -1,0 +1,252 @@
+receivers:
+
+  fluentforward:
+    endpoint: 0.0.0.0:8006
+
+  awsecscontainermetrics:
+    collection_interval: 10s
+
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    collection_interval: 10s
+    metrics:
+      container.cpu.usage.system:
+        enabled: true
+      container.cpu.usage.percpu:
+        enabled: true
+      container.cpu.limit:
+        enabled: true
+      container.memory.usage.max:
+        enabled: true
+      container.memory.cache:
+        enabled: true
+      container.memory.rss:
+        enabled: true
+      container.memory.pgfault:
+        enabled: true
+      container.memory.fails:
+        enabled: true
+      container.network.io.usage.rx_errors:
+        enabled: true
+      container.network.io.usage.tx_errors:
+        enabled: true
+      container.network.io.usage.rx_packets:
+        enabled: true
+      container.network.io.usage.tx_packets:
+        enabled: true
+      container.restarts:
+        enabled: true
+
+  awscontainerinsightreceiver:
+    collection_interval: 10s
+    container_orchestrator: ecs
+
+  hostmetrics:
+    collection_interval: 10s
+    scrapers:
+      cpu: {}
+      load: {}
+      memory: {}
+      paging: {}
+      filesystem: {}
+      disk: {}
+      network: {}
+      processes: {}
+
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+
+processors:
+
+  batch:
+    timeout: 2s
+    send_batch_size: 8192
+    send_batch_max_size: 10000
+
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 30
+
+  transform/foramt_target:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["http.url"], attributes["http.target"])
+          - replace_pattern(attributes["http.url"], "[a-fA-F0-9]{32}", ":id")
+          - replace_pattern(attributes["http.url"], "=([^&]+)", "=")
+
+  transform/extract_query_params:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["__parts"], Split(attributes["http.target"], "?"))
+          - set(attributes["__query_str"], attributes["__parts"][1])
+          - set(attributes["query_params"], Split(attributes["__query_str"], "&"))
+          - delete_key(attributes, "__parts")
+          - delete_key(attributes, "__query_str")
+
+  transform/fluentforward-service-name:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(resource.attributes["service.name"], attributes["container_name"])
+
+  transform/extract_trace_id_span_id:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(trace_id.string, ExtractPatterns(body, "trace_id=(?P<trace_id>[a-fA-F0-9]+) span_id=(?P<span_id>[a-fA-F0-9]+)")["trace_id"])
+          - set(span_id.string, ExtractPatterns(body, "trace_id=(?P<trace_id>[a-fA-F0-9]+) span_id=(?P<span_id>[a-fA-F0-9]+)")["span_id"])
+
+  attributes/extract_id:
+    actions:
+      - key: http.target
+        action: extract
+        pattern: '/[^/]+/(?P<id>[A-Fa-f0-9]{32})'
+
+  resource:
+    attributes:
+      - key: service.name
+        value: zinc
+        action: upsert
+
+  resource/ecs:
+    attributes:
+      - key: service.name
+        value: ecs
+        action: upsert
+
+  resource/env:
+    attributes:
+      - key: environment
+        value: staging
+        action: upsert
+
+  resourcedetection:
+    detectors: [ecs, system, ec2, docker]
+    timeout: 2s
+    system:
+      resource_attributes:
+        host.arch:
+          enabled: true
+        host.cpu.cache.l2.size:
+          enabled: true
+        host.cpu.family:
+          enabled: true
+        host.cpu.model.id:
+          enabled: true
+        host.cpu.model.name:
+          enabled: true
+        host.cpu.stepping:
+          enabled: true
+        host.cpu.vendor.id:
+          enabled: true
+        host.id:
+          enabled: true
+        host.ip:
+          enabled: true
+        host.mac:
+          enabled: true
+        host.name:
+          enabled: true
+        os.description:
+          enabled: true
+        os.type:
+          enabled: true
+        os.version:
+          enabled: true
+
+exporters:
+
+  otlphttp/b14:
+    endpoint: ${SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+
+  debug:
+    verbosity: detailed
+extensions:
+
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+  oauth2client:
+    client_id: ${SCOUT_CLIENT_ID}
+    client_secret: ${SCOUT_CLIENT_SECRET}
+    endpoint_params:
+      audience: b14collector
+    token_url: ${SCOUT_TOKEN_URL}
+    tls:
+      insecure_skip_verify: true
+service:
+  extensions: [oauth2client, zpages, health_check]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection, resource/env]
+      exporters: [otlphttp/b14]
+    logs/continer-logs:
+      receivers: [fluentforward]
+      processors:
+        [
+          resourcedetection,
+          resource/env,
+          transform/fluentforward-service-name,
+          transform/extract_trace_id_span_id,
+        ]
+      exporters: [otlphttp/b14]
+    metrics/ecs:
+      receivers:
+        [
+          awsecscontainermetrics,
+          hostmetrics,
+          docker_stats,
+          awscontainerinsightreceiver,
+        ]
+      processors: [resourcedetection, resource/env, resource/ecs]
+      exporters: [otlphttp/b14]
+    metrics:
+      receivers: [otlp]
+      processors: [resourcedetection, resource/env]
+      exporters: [otlphttp/b14]
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, resource/env, attributes/extract_id, transform/foramt_target, transform/extract_query_params]
+      exporters: [otlphttp/b14]
+  telemetry:
+    metrics:
+      readers:
+        - periodic:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://0.0.0.0:4318
+    logs:
+      level: error
+      encoding: json
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://0.0.0.0:4318
+    traces:
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://0.0.0.0:4318
