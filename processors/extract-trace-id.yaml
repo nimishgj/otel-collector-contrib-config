@@ -1,0 +1,10 @@
+processors:
+  transform/extract_trace_id_span_id:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(trace_id.string, ExtractPatterns(body, "trace_id=(?P<trace_id>[a-fA-F0-9]+) span_id=(?P<span_id>[a-fA-F0-9]+)")["trace_id"])
+          - set(span_id.string, ExtractPatterns(body, "trace_id=(?P<trace_id>[a-fA-F0-9]+) span_id=(?P<span_id>[a-fA-F0-9]+)")["span_id"])
+
+
